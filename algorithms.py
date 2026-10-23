@@ -1,28 +1,37 @@
-def choose_victim(algorithm, frames, references, current_index,
-                  last_used, frequency, loaded_at):
-    if algorithm == "FIFO":
-        return min(range(len(frames)), key=lambda i: loaded_at[frames[i]])
+"""Victim-selection policies for page replacement."""
+from collections import Counter
 
-    if algorithm == "LRU":
-        return min(range(len(frames)), key=lambda i: last_used[frames[i]])
+def choose_victim(policy, frames, references, current_index, last_used, frequencies, load_order):
+    """Return the page to evict. Called only when memory is full."""
+    policy = policy.upper()
 
-    if algorithm == "Optimal":
-        
-        def next_use(page):
+    if policy == "FIFO":
+        return min(frames, key=lambda page: load_order[page])
+
+    if policy == "LRU":
+        return min(frames, key=lambda page: last_used[page])
+
+    if policy == "OPTIMAL":
+        future = references[current_index + 1:]
+        next_use = {}
+        for page in frames:
             try:
-                return references.index(page, current_index + 1)
+                next_use[page] = future.index(page)
             except ValueError:
-                return float("inf")
-        return max(range(len(frames)), key=lambda i: next_use(frames[i]))
+                next_use[page] = float("inf")
+        return max(frames, key=lambda page: next_use[page])
 
-    if algorithm == "AF-LRU":
-        
-        def score(page):
-            age = current_index - last_used[page]
-            recency_score = age / max(1, current_index + 1)
-            low_frequency_score = 1 / (1 + frequency[page])
-            alpha, beta = 0.5, 0.5
-            return alpha * recency_score + beta * low_frequency_score
-        return max(range(len(frames)), key=lambda i: score(frames[i]))
+    if policy == "AF-LRU":
+        # Higher score means a better eviction candidate.
+        # Normalize recency and inverse frequency within the current frame set.
+        ages = {page: current_index - last_used[page] for page in frames}
+        max_age = max(ages.values()) or 1
+        max_frequency = max(frequencies[page] for page in frames) or 1
+        scores = {}
+        for page in frames:
+            recency_score = ages[page] / max_age
+            frequency_score = 1 - (frequencies[page] / max_frequency)
+            scores[page] = 0.5 * recency_score + 0.5 * frequency_score
+        return max(frames, key=lambda page: (scores[page], -last_used[page]))
 
-    raise ValueError(f"Unknown algorithm: {algorithm}")
+    raise ValueError(f"Unknown policy: {policy}")

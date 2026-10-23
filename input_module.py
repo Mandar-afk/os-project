@@ -1,20 +1,20 @@
 def get_user_input():
+    """Read and validate a page-reference string and frame count."""
     while True:
-        raw = input("Enter page reference string (space-separated) ").strip()
+        raw = input("Enter page reference string (space-separated): ").strip()
         try:
-            references = [int(x) for x in raw.replace(",", " ").split()]
+            references = [int(x) for x in raw.split()]
             if references:
                 break
+            print("Please enter at least one page reference.")
         except ValueError:
-            pass
-        print("Enter one or more integer page numbers.")
+            print("Use integers separated by spaces.")
 
     while True:
         try:
-            frame_count = int(input("Enter number of memory frames: ").strip())
-            if frame_count > 0:
-                break
+            frames = int(input("Enter number of memory frames: ").strip())
+            if frames > 0:
+                return references, frames
+            print("Number of frames must be greater than zero.")
         except ValueError:
-            pass
-        print("Frame count must be a positive integer.")
-    return references, frame_count
+            print("Enter a positive integer.")

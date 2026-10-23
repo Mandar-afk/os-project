@@ -1,17 +1,25 @@
+"""Run a page-replacement simulation and return a trace plus metrics."""
+from collections import Counter
 from algorithms import choose_victim
 
-ALGORITHMS = ("FIFO", "LRU", "Optimal", "AF-LRU")
+POLICIES = ("FIFO", "LRU", "Optimal", "AF-LRU")
 
-def run_simulation(references, frame_count, algorithm):
+def run_simulation(references, frame_count, policy):
+    if frame_count < 1:
+        raise ValueError("frame_count must be at least 1")
+    if not references:
+        raise ValueError("references must not be empty")
+
+    policy_key = policy.upper()
     frames = []
-    last_used = {}
-    frequency = {}
-    loaded_at = {}
     trace = []
+    last_used = {}
+    frequencies = Counter()
+    load_order = {}
     hits = faults = 0
 
     for index, page in enumerate(references):
-        frequency[page] = frequency.get(page, 0) + 1
+        frequencies[page] += 1
         evicted = None
 
         if page in frames:
@@ -22,30 +30,32 @@ def run_simulation(references, frame_count, algorithm):
             status = "FAULT"
             if len(frames) < frame_count:
                 frames.append(page)
+                load_order[page] = index
             else:
-                victim_index = choose_victim(
-                    algorithm, frames, references, index,
-                    last_used, frequency, loaded_at
+                evicted = choose_victim(
+                    policy_key, frames, references, index,
+                    last_used, frequencies, load_order
                 )
-                evicted = frames[victim_index]
-                frames[victim_index] = page
-            loaded_at[page] = index
+                slot = frames.index(evicted)
+                frames[slot] = page
+                load_order.pop(evicted, None)
+                load_order[page] = index
 
         last_used[page] = index
         trace.append({
             "request": page,
             "frames": frames.copy(),
             "status": status,
-            "evicted": evicted
+            "evicted": evicted,
         })
 
     total = len(references)
     return {
-        "algorithm": algorithm,
+        "policy": policy,
         "trace": trace,
         "hits": hits,
         "faults": faults,
-        "total": total,
-        "hit_ratio": hits / total if total else 0,
-        "fault_ratio": faults / total if total else 0
+        "hit_ratio": hits / total,
+        "fault_ratio": faults / total,
+        "total_references": total,
     }
